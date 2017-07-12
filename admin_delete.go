@@ -7,7 +7,10 @@ import (
 )
 
 const (
-	maxDeleteItemsPerRequest = 100
+	// maxDeleteItemsPerRequest shows how many public_ids can be passed at a time to
+	// a bulk delete method. Cloudinary doc says that the maximum is 100, but if public_ids
+	// are long, you'll get 414(URI is too long) from the API.
+	maxDeleteItemsPerRequest = 20
 
 	pathUploadedImages = "/resources/image/upload"
 	pathUploadedRaws   = "/resources/raw/upload"
