@@ -429,13 +429,7 @@ func (s *Service) explicit(resourceType ResourceType, p *ExplicitParams) error {
 	return nil
 }
 
-func (s *Service) basicParams() params {
-	return params{
-		"api_key":   s.apiKey,
-		"timestamp": strconv.FormatInt(time.Now().Unix(), 10),
-	}
-}
-
+// upload is a new-way implementation of image uploading. THe old way is kept for compatibility.
 func (s *Service) upload(file interface{}, resourceType ResourceType, p *UploadParams) (string, error) {
 	params, err := s.paramsForAPICall(p)
 	if err != nil {
@@ -460,6 +454,23 @@ func (s *Service) upload(file interface{}, resourceType ResourceType, p *UploadP
 	}
 
 	return uploadInfo.PublicId, nil
+}
+
+func (s *Service) UpdateExistingImage(publicID string, p *UploadParams) error {
+	p.PublicID = publicID
+	_, err := s.upload(
+		s.resourceURL(ImageType, SourceUpload, publicID),
+		ImageType,
+		p,
+	)
+	if err != nil {
+		return errors.Wrap(err, "Failed to update existing image")
+	}
+	return nil
+}
+
+func (s *Service) resourceURL(resourceType ResourceType, sourceType SourceType, publicID string) string {
+	return fmt.Sprintf("%s/%s/%s/%s/%s", baseResourceUrl, s.cloudName, resourceType, sourceType, publicID)
 }
 
 // Upload a file or a set of files to the cloud. The path parameter is
@@ -540,7 +551,6 @@ func handleHttpResponse(resp *http.Response) (map[string]interface{}, error) {
 
 // Delete deletes a resource uploaded to Cloudinary.
 func (s *Service) Delete(publicId, prepend string, rtype ResourceType) error {
-	// TODO: also delete resource entry from database (if used)
 	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
 	data := url.Values{
 		"api_key":   []string{s.apiKey},

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"sort"
 	"strconv"
+	"time"
 )
 
 // TODO: distinguish common fields into base struct to follow DRY and not repeat ToParams for them.
@@ -93,4 +94,11 @@ func (p *params) publicID() (string, bool) {
 	p.guaranteeParams()
 	publicID, ok := (*p)["public_id"]
 	return publicID, ok
+}
+
+func (s *Service) basicParams() params {
+	return params{
+		"api_key":   s.apiKey,
+		"timestamp": strconv.FormatInt(time.Now().Unix(), 10),
+	}
 }
