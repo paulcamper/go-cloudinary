@@ -262,7 +262,7 @@ func (s *Service) walkIt(path string, info os.FileInfo, err error) error {
 	if info.IsDir() {
 		return nil
 	}
-	if _, err := s.uploadFile(path, nil, false); err != nil {
+	if _, err := s.uploadFile(path, nil, false, nil); err != nil {
 		return err
 	}
 	return nil
@@ -271,14 +271,14 @@ func (s *Service) walkIt(path string, info os.FileInfo, err error) error {
 // Upload file to the service. When using a mongoDB database for storing
 // file information (such as checksums), the database is updated after
 // any successful upload.
-func (s *Service) uploadFile(fullPath string, data io.Reader, randomPublicId bool) (string, error) {
+func (s *Service) uploadFile(fullPath string, data io.Reader, randomPublicId bool, t *Transformation) (string, error) {
 	// Do not upload empty files
 	fi, err := os.Stat(fullPath)
 	if err == nil && fi.Size() == 0 {
-		return fullPath, nil
 		if s.verbose {
 			fmt.Println("Not uploading empty file: ", fullPath)
 		}
+		return fullPath, nil
 	}
 	// First check we have no match before sending an HTTP query
 	changedLocally := false
@@ -338,9 +338,26 @@ func (s *Service) uploadFile(fullPath string, data io.Reader, randomPublicId boo
 	}
 	ts.Write([]byte(timestamp))
 
+	// write transformations
+	var transformationString string
+	if t != nil {
+		ti, err := w.CreateFormField("transformation")
+		if err != nil {
+			return fullPath, err
+		}
+		transformationString =t.String()
+		ti.Write([]byte(transformationString))
+	}
+
 	// Write signature
 	hash := sha1.New()
-	part := fmt.Sprintf("timestamp=%s%s", timestamp, s.apiSecret)
+	var part string
+	if transformationString != "" {
+		part = fmt.Sprintf("transformation=%s%s", transformationString, s.apiSecret)
+	} else {
+		part = s.apiSecret
+	}
+	part = fmt.Sprintf("timestamp=%s&%s", timestamp, part)
 	if !randomPublicId {
 		part = fmt.Sprintf("public_id=%s&%s", publicId, part)
 	}
@@ -352,6 +369,7 @@ func (s *Service) uploadFile(fullPath string, data io.Reader, randomPublicId boo
 		return fullPath, err
 	}
 	si.Write([]byte(signature))
+
 
 	// Write file field
 	fw, err := w.CreateFormFile("file", fullPath)
@@ -435,19 +453,23 @@ func (s *Service) uploadFile(fullPath string, data io.Reader, randomPublicId boo
 
 // helpers
 func (s *Service) UploadStaticRaw(path string, data io.Reader, prepend string) (string, error) {
-	return s.Upload(path, data, prepend, false, RawType)
+	return s.Upload(path, data, prepend, false, RawType, nil)
 }
 
 func (s *Service) UploadStaticImage(path string, data io.Reader, prepend string) (string, error) {
-	return s.Upload(path, data, prepend, false, ImageType)
+	return s.Upload(path, data, prepend, false, ImageType, nil)
 }
 
 func (s *Service) UploadRaw(path string, data io.Reader, prepend string) (string, error) {
-	return s.Upload(path, data, prepend, false, RawType)
+	return s.Upload(path, data, prepend, false, RawType, nil)
 }
 
 func (s *Service) UploadImage(path string, data io.Reader, prepend string) (string, error) {
-	return s.Upload(path, data, prepend, false, ImageType)
+	return s.Upload(path, data, prepend, false, ImageType, nil)
+}
+
+func (s *Service) UploadImageWithTransformation(path string, data io.Reader, prepend string, t *Transformation) (string, error) {
+	return s.Upload(path, data, prepend, false, ImageType, t)
 }
 
 // Upload a file or a set of files to the cloud. The path parameter is
@@ -471,7 +493,7 @@ func (s *Service) UploadImage(path string, data io.Reader, prepend string) (stri
 // /tmp/images/logo.png will be stored as images/logo.
 //
 // The function returns the public identifier of the resource.
-func (s *Service) Upload(path string, data io.Reader, prepend string, randomPublicId bool, rtype ResourceType) (string, error) {
+func (s *Service) Upload(path string, data io.Reader, prepend string, randomPublicId bool, rtype ResourceType, t *Transformation) (string, error) {
 	s.uploadResType = rtype
 	s.basePathDir = ""
 	s.prependPath = prepend
@@ -487,10 +509,10 @@ func (s *Service) Upload(path string, data io.Reader, prepend string, randomPubl
 				return path, err
 			}
 		} else {
-			return s.uploadFile(path, nil, randomPublicId)
+			return s.uploadFile(path, nil, randomPublicId, t)
 		}
 	} else {
-		return s.uploadFile(path, data, randomPublicId)
+		return s.uploadFile(path, data, randomPublicId, t)
 	}
 	return path, nil
 }
