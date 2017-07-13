@@ -58,7 +58,7 @@ type APIBody struct {
 	ContentType string
 }
 
-func apiBody(params params, r io.Reader) (*APIBody, error) {
+func apiBody(params params, file interface{}) (*APIBody, error) {
 	buf := new(bytes.Buffer)
 	w := multipart.NewWriter(buf)
 
@@ -73,22 +73,36 @@ func apiBody(params params, r io.Reader) (*APIBody, error) {
 		}
 	}
 
-	publicID, found := params.publicID()
-	if found && r != nil {
-		fw, err := w.CreateFormFile("file", publicID)
-		if err != nil {
-			return nil, errors.Wrap(err, "Failed to create form file")
-		}
-		tmp, err := ioutil.ReadAll(r)
-		if err != nil {
-			return nil, errors.Wrap(err, "Failed to read file from reader")
-		}
-		_, err = fw.Write(tmp)
-		if err != nil {
-			return nil, errors.Wrap(err, "Failed to write file data to writer")
-		}
+	switch f := file.(type) {
+	case io.Reader:
+		publicID, found := params.publicID()
+		if found {
+			fw, err := w.CreateFormFile("file", publicID)
+			if err != nil {
+				return nil, errors.Wrap(err, "Failed to create form file")
+			}
+			tmp, err := ioutil.ReadAll(f)
+			if err != nil {
+				return nil, errors.Wrap(err, "Failed to read file from reader")
+			}
+			_, err = fw.Write(tmp)
+			if err != nil {
+				return nil, errors.Wrap(err, "Failed to write file data to writer")
+			}
 
+		}
+	case string:
+		// TODO: make dependency on link or filepath. Currently, link only applies
+		ws, err := w.CreateFormField("file")
+		if err != nil {
+			return nil, errors.Wrap(err, "Failed to create form field")
+		}
+		_, err = ws.Write([]byte(f))
+		if err != nil {
+			return nil, errors.Wrap(err, "Failed to write file string")
+		}
 	}
+
 
 	err := w.Close()
 	if err != nil {
