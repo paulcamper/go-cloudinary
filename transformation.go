@@ -55,28 +55,15 @@ func (t *Transformation) String() string {
 	return buf.String()
 }
 
-type Quality string
+type Transformations []*Transformation
 
-const (
-	QualityAuto     = "q_auto"
-	QualityAutoLow  = "q_auto:low"
-	QualityAutoEco  = "q_auto:eco"
-	QualityAutoGood = "q_auto:good"
-	QualityAutoBest = "q_auto:best"
-)
-
-type CropMode string
-
-const (
-	CropModeScale  = "c_scale"
-	CropModeFit    = "c_fit"
-	CropModeLimit  = "c_limit"
-	CropModeMfit   = "c_mfit"
-	CropModeFill   = "c_fill"
-	CropModeLfill  = "c_lfill"
-	CropModePad    = "c_pad"
-	CropModeLpad   = "c_lpad"
-	CropModeCrop   = "c_crop"
-	CropModeThumb  = "c_thumb"
-	CropModeImagga = "c_imagga_crop"
-)
+func (t *Transformations) String() string {
+	var buf bytes.Buffer
+	for _, transformation := range *t {
+		if buf.Len() > 0 {
+			buf.WriteString("/")
+		}
+		buf.WriteString(transformation.String())
+	}
+	return buf.String()
+}
