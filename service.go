@@ -14,7 +14,6 @@ import (
 	"bytes"
 	"crypto/sha1"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -29,12 +28,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
 
 const (
 	baseUploadUrl   = "http://api.cloudinary.com/v1_1"
+	baseUrl         = "http://api.cloudinary.com/v1_1" // just to now change what was done before
 	baseResourceUrl = "http://res.cloudinary.com"
 	imageType       = "image"
 	rawType         = "raw"
@@ -46,6 +47,17 @@ const (
 	ImageType ResourceType = iota
 	RawType
 )
+
+// TODO: rework to map based implementation
+func (r ResourceType) String() string {
+	switch r {
+	case ImageType:
+		return "image"
+	case RawType:
+		return "raw"
+	}
+	return ""
+}
 
 type Service struct {
 	cloudName        string
@@ -337,7 +349,6 @@ func (s *Service) uploadFile(fullPath string, data io.Reader, randomPublicId boo
 		return fullPath, err
 	}
 	ts.Write([]byte(timestamp))
-
 	// write transformations
 	var transformationString string
 	if t != nil {
@@ -345,7 +356,7 @@ func (s *Service) uploadFile(fullPath string, data io.Reader, randomPublicId boo
 		if err != nil {
 			return fullPath, err
 		}
-		transformationString =t.String()
+		transformationString = t.String()
 		ti.Write([]byte(transformationString))
 	}
 
@@ -369,7 +380,6 @@ func (s *Service) uploadFile(fullPath string, data io.Reader, randomPublicId boo
 		return fullPath, err
 	}
 	si.Write([]byte(signature))
-
 
 	// Write file field
 	fw, err := w.CreateFormFile("file", fullPath)
@@ -470,6 +480,44 @@ func (s *Service) UploadImage(path string, data io.Reader, prepend string) (stri
 
 func (s *Service) UploadImageWithTransformation(path string, data io.Reader, prepend string, t *Transformation) (string, error) {
 	return s.Upload(path, data, prepend, false, ImageType, t)
+}
+
+func (s *Service) ExplicitImage(publicID string, p *ExplicitParams) error {
+	return s.explicit(publicID, ImageType, p)
+}
+
+func (s *Service) ExplicitRaw(publicID string, p *ExplicitParams) error {
+	return s.explicit(publicID, RawType, p)
+}
+
+func (s *Service) explicit(publicID string, resourceType ResourceType, p *ExplicitParams) error {
+	// starting parameters
+	params := params{
+		"public_id": publicID,
+		"api_key":   s.apiKey,
+		"timestamp": strconv.FormatInt(time.Now().Unix(), 10),
+	}
+	params.join(p.ToParams())
+
+	signature, err := s.signature(params)
+	if err != nil {
+		return errors.Wrap(err, "Failed to create a signature")
+	}
+	params.set("signature", signature)
+
+	apiBody, err := apiBody(params, nil)
+	if err != nil {
+		return errors.Wrap(err, "Failed to create api body")
+	}
+
+	apiUrl := s.apiURL(baseUrl, resourceType, ActionExplicit)
+
+	_, err = s.makeRequest(apiUrl, apiBody)
+	if err != nil {
+		return errors.Wrapf(err, "Error after making a request to url [%s]", apiUrl)
+	}
+
+	return nil
 }
 
 // Upload a file or a set of files to the cloud. The path parameter is
