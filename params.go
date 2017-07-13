@@ -6,8 +6,11 @@ import (
 	"strconv"
 )
 
+// TODO: distinguish common fields into base struct to follow DRY and not repeat ToParams for them.
+
 // ExplicitParams is a basic set of fields needed for "explicit" api method.
 type ExplicitParams struct {
+	PublicID   string
 	Type       string
 	Eager      Transformations
 	Invalidate bool
@@ -15,8 +18,23 @@ type ExplicitParams struct {
 
 func (p *ExplicitParams) ToParams() params {
 	var params params
+	params.set("public_id", p.PublicID)
 	params.set("type", p.Type)
 	params.set("eager", p.Eager.String())
+	params.set("invalidate", strconv.FormatBool(p.Invalidate))
+	return params
+}
+
+type UploadParams struct {
+	Transformation *Transformation
+	PublicID       string
+	Invalidate     bool
+}
+
+func (p *UploadParams) ToParams() params {
+	var params params
+	params.set("transformation", p.Transformation.String())
+	params.set("public_id", p.PublicID)
 	params.set("invalidate", strconv.FormatBool(p.Invalidate))
 	return params
 }

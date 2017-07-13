@@ -400,28 +400,19 @@ func (s *Service) UploadImageWithTransformation(path string, data io.Reader, pre
 	return s.Upload(path, data, prepend, false, ImageType, t)
 }
 
-func (s *Service) ExplicitImage(publicID string, p *ExplicitParams) error {
-	return s.explicit(publicID, ImageType, p)
+func (s *Service) ExplicitImage(p *ExplicitParams) error {
+	return s.explicit(ImageType, p)
 }
 
 func (s *Service) ExplicitRaw(publicID string, p *ExplicitParams) error {
-	return s.explicit(publicID, RawType, p)
+	return s.explicit(RawType, p)
 }
 
-func (s *Service) explicit(publicID string, resourceType ResourceType, p *ExplicitParams) error {
-	// starting parameters
-	params := params{
-		"public_id": publicID,
-		"api_key":   s.apiKey,
-		"timestamp": strconv.FormatInt(time.Now().Unix(), 10),
-	}
-	params.join(p.ToParams())
-
-	signature, err := s.signature(params)
+func (s *Service) explicit(resourceType ResourceType, p *ExplicitParams) error {
+	params, err := s.paramsForAPICall(p)
 	if err != nil {
-		return errors.Wrap(err, "Failed to create a signature")
+		return errors.Wrap(err, "Failed to get params for api call")
 	}
-	params.set("signature", signature)
 
 	apiBody, err := apiBody(params, nil)
 	if err != nil {
@@ -436,6 +427,39 @@ func (s *Service) explicit(publicID string, resourceType ResourceType, p *Explic
 	}
 
 	return nil
+}
+
+func (s *Service) basicParams() params {
+	return params{
+		"api_key":   s.apiKey,
+		"timestamp": strconv.FormatInt(time.Now().Unix(), 10),
+	}
+}
+
+func (s *Service) upload(file interface{}, resourceType ResourceType, p *UploadParams) (string, error) {
+	params, err := s.paramsForAPICall(p)
+	if err != nil {
+		return "", errors.Wrap(err, "Failed to get params for api call")
+	}
+
+	apiBody, err := apiBody(params, file)
+	if err != nil {
+		return "", errors.Wrap(err, "Failed to create api body")
+	}
+
+	apiUrl := s.apiURL(baseUrl, resourceType, ActionUpload)
+
+	bytesBody, err := s.makeRequest(apiUrl, apiBody)
+	if err != nil {
+		return "", errors.Wrapf(err, "Error after making a request to url [%s]", apiUrl)
+	}
+
+	uploadInfo, err := uploadInfoFromBytes(bytesBody)
+	if err != nil {
+		return "", errors.Wrap(err, "Failed to get upload info struct from resp bytes")
+	}
+
+	return uploadInfo.PublicId, nil
 }
 
 // Upload a file or a set of files to the cloud. The path parameter is
