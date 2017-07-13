@@ -78,23 +78,6 @@ func TestKeepFiles(t *testing.T) {
 	}
 }
 
-func TestUseDatabase(t *testing.T) {
-	s := new(Service)
-	if err := s.UseDatabase("baduri::"); err == nil {
-		t.Error("should fail on bad uri")
-	}
-	// Bad scheme
-	if err := s.UseDatabase("http://localhost"); err == nil {
-		t.Error("should fail if URL scheme different from mongodb://")
-	}
-	if err := s.UseDatabase("mongodb://localhost/cloudinary"); err != nil {
-		t.Error("please ensure you have a running MongoDB server on localhost")
-	}
-	if s.dbSession == nil || s.col == nil {
-		t.Error("service's dbSession and col should not be nil")
-	}
-}
-
 func TestCleanAssetName(t *testing.T) {
 	assets := [][4]string{
 		// order: path, basepath, prepend, expected result
