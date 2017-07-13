@@ -30,4 +30,5 @@ type Action string
 
 const (
 	ActionExplicit = "explicit"
+	ActionUpload   = "upload"
 )

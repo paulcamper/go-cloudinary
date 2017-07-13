@@ -15,7 +15,7 @@ import (
 )
 
 // TODO(oleh): add custom http client, as default can hang out on timeout forever.
-func (s *Service) makeRequest(url string, body *APIBody) (*uploadResponse, error) {
+func (s *Service) makeRequest(url string, body *APIBody) ([]byte, error) {
 	req, err := http.NewRequest(http.MethodPost, url, body.Bytes)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to create a new http request")
@@ -37,8 +37,16 @@ func (s *Service) makeRequest(url string, body *APIBody) (*uploadResponse, error
 		}
 		return nil, errors.New(errInfo.Error.Message)
 	}
+	respBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed read bytes from resp body")
+	}
+	return respBytes, nil
+}
+
+func uploadInfoFromBytes(bodyBytes []byte) (*uploadResponse, error) {
 	var upInfo uploadResponse
-	if err := json.NewDecoder(resp.Body).Decode(&upInfo); err != nil {
+	if err := json.NewDecoder(bytes.NewReader(bodyBytes)).Decode(&upInfo); err != nil {
 		return nil, errors.Wrap(err, "Failed to decode with json")
 	}
 	return &upInfo, nil
@@ -103,7 +111,6 @@ func apiBody(params params, file interface{}) (*APIBody, error) {
 		}
 	}
 
-
 	err := w.Close()
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to close multipart writer")
@@ -116,4 +123,20 @@ func apiBody(params params, file interface{}) (*APIBody, error) {
 
 func (s *Service) apiURL(baseURL string, resourceType ResourceType, action Action) string {
 	return fmt.Sprintf("%s/%s/%s/%s", baseURL, s.cloudName, resourceType, action)
+}
+
+type ToParamser interface {
+	ToParams() params
+}
+
+func (s *Service) paramsForAPICall(p ToParamser) (params, error) {
+	params := s.basicParams()
+	params.join(p.ToParams())
+
+	signature, err := s.signature(params)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to create a signature")
+	}
+	params.set("signature", signature)
+	return params, nil
 }
