@@ -32,3 +32,9 @@ const (
 	ActionExplicit = "explicit"
 	ActionUpload   = "upload"
 )
+
+type SourceType string
+
+const (
+	SourceUpload = "upload"
+)
