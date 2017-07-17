@@ -241,7 +241,7 @@ func (s *Service) walkIt(path string, info os.FileInfo, err error) error {
 	if info.IsDir() {
 		return nil
 	}
-	if _, err := s.uploadFile(path, nil, false, nil); err != nil {
+	if _, err := s.uploadFile(path, nil, false); err != nil {
 		return err
 	}
 	return nil
@@ -250,7 +250,8 @@ func (s *Service) walkIt(path string, info os.FileInfo, err error) error {
 // Upload file to the service. When using a mongoDB database for storing
 // file information (such as checksums), the database is updated after
 // any successful upload.
-func (s *Service) uploadFile(fullPath string, data io.Reader, randomPublicId bool, t *Transformation) (string, error) {
+// Deprecated
+func (s *Service) uploadFile(fullPath string, data io.Reader, randomPublicId bool) (string, error) {
 	// Do not upload empty files
 	fi, err := os.Stat(fullPath)
 	if err == nil && fi.Size() == 0 {
@@ -286,26 +287,10 @@ func (s *Service) uploadFile(fullPath string, data io.Reader, randomPublicId boo
 		return fullPath, err
 	}
 	ts.Write([]byte(timestamp))
-	// write transformations
-	var transformationString string
-	if t != nil {
-		ti, err := w.CreateFormField("transformation")
-		if err != nil {
-			return fullPath, err
-		}
-		transformationString = t.String()
-		ti.Write([]byte(transformationString))
-	}
 
 	// Write signature
 	hash := sha1.New()
-	var part string
-	if transformationString != "" {
-		part = fmt.Sprintf("transformation=%s%s", transformationString, s.apiSecret)
-	} else {
-		part = s.apiSecret
-	}
-	part = fmt.Sprintf("timestamp=%s&%s", timestamp, part)
+	part := fmt.Sprintf("timestamp=%s%s", timestamp, s.apiSecret)
 	if !randomPublicId {
 		part = fmt.Sprintf("public_id=%s&%s", publicId, part)
 	}
@@ -379,25 +364,29 @@ func (s *Service) uploadFile(fullPath string, data io.Reader, randomPublicId boo
 	}
 }
 
-// helpers
+// helpers (legacy)
 func (s *Service) UploadStaticRaw(path string, data io.Reader, prepend string) (string, error) {
-	return s.Upload(path, data, prepend, false, RawType, nil)
+	return s.Upload(path, data, prepend, false, RawType)
 }
 
 func (s *Service) UploadStaticImage(path string, data io.Reader, prepend string) (string, error) {
-	return s.Upload(path, data, prepend, false, ImageType, nil)
+	return s.Upload(path, data, prepend, false, ImageType)
 }
 
 func (s *Service) UploadRaw(path string, data io.Reader, prepend string) (string, error) {
-	return s.Upload(path, data, prepend, false, RawType, nil)
+	return s.Upload(path, data, prepend, false, RawType)
 }
 
 func (s *Service) UploadImage(path string, data io.Reader, prepend string) (string, error) {
-	return s.Upload(path, data, prepend, false, ImageType, nil)
+	return s.Upload(path, data, prepend, false, ImageType)
 }
 
-func (s *Service) UploadImageWithTransformation(path string, data io.Reader, prepend string, t *Transformation) (string, error) {
-	return s.Upload(path, data, prepend, false, ImageType, t)
+// helpers (new)
+func (s *Service) UploadImageWithTransformation(cloudinaryID string, data io.Reader, t *Transformation) (string, error) {
+	return s.upload(data, ImageType, &UploadParams{
+		PublicID:       cloudinaryID,
+		Transformation: t,
+	})
 }
 
 func (s *Service) ExplicitImage(p *ExplicitParams) error {
@@ -429,7 +418,7 @@ func (s *Service) explicit(resourceType ResourceType, p *ExplicitParams) error {
 	return nil
 }
 
-// upload is a new-way implementation of image uploading. THe old way is kept for compatibility.
+// upload is a new-way implementation of image uploading. The old way is kept for compatibility.
 func (s *Service) upload(file interface{}, resourceType ResourceType, p *UploadParams) (string, error) {
 	params, err := s.paramsForAPICall(p)
 	if err != nil {
@@ -494,7 +483,7 @@ func (s *Service) resourceURL(resourceType ResourceType, sourceType SourceType, 
 // /tmp/images/logo.png will be stored as images/logo.
 //
 // The function returns the public identifier of the resource.
-func (s *Service) Upload(path string, data io.Reader, prepend string, randomPublicId bool, rtype ResourceType, t *Transformation) (string, error) {
+func (s *Service) Upload(path string, data io.Reader, prepend string, randomPublicId bool, rtype ResourceType) (string, error) {
 	s.uploadResType = rtype
 	s.basePathDir = ""
 	s.prependPath = prepend
@@ -510,10 +499,10 @@ func (s *Service) Upload(path string, data io.Reader, prepend string, randomPubl
 				return path, err
 			}
 		} else {
-			return s.uploadFile(path, nil, randomPublicId, t)
+			return s.uploadFile(path, nil, randomPublicId)
 		}
 	} else {
-		return s.uploadFile(path, data, randomPublicId, t)
+		return s.uploadFile(path, data, randomPublicId)
 	}
 	return path, nil
 }
