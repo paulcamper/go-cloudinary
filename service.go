@@ -420,7 +420,7 @@ func (s *Service) explicit(resourceType ResourceType, p *ExplicitParams) error {
 
 // upload is a new-way implementation of image uploading. The old way is kept for compatibility.
 func (s *Service) upload(file interface{}, resourceType ResourceType, p *UploadParams) (string, error) {
-	params, err := s.paramsForAPICall(p)
+	params, err := s.paramsForAPICall(p.normalize())
 	if err != nil {
 		return "", errors.Wrap(err, "Failed to get params for api call")
 	}
