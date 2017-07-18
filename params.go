@@ -32,6 +32,11 @@ type UploadParams struct {
 	Invalidate     bool
 }
 
+func (p *UploadParams) normalize() *UploadParams {
+	p.PublicID = cleanAssetName(p.PublicID, "", "")
+	return p
+}
+
 func (p *UploadParams) ToParams() params {
 	var params params
 	params.set("transformation", p.Transformation.String())
