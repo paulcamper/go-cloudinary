@@ -58,6 +58,7 @@ func (s *Service) bulkDeleteUploadedWithInvalidation(resourceType ResourceType, 
 			}
 			m, err := handleHttpResponse(resp)
 			if err != nil {
+				fmt.Println("idsForQuery", idsForQuery)
 				return err
 			}
 			if e, ok := m["next_cursor"]; ok {
