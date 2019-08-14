@@ -9,13 +9,13 @@ import (
 
 type ResourceStatistic struct {
 	Usage        float64
-	CreditsUsage float64
+	CreditsUsage float64 `json:"credits_usage"`
 }
 
 type CreditsStatistic struct {
 	Usage       float64
 	Limit       float64
-	UsedPercent float64
+	UsedPercent float64 `json:"used_percent"`
 }
 
 type Statistic struct {
@@ -28,7 +28,7 @@ type Statistic struct {
 
 	Requests         int64
 	Resources        int64
-	DerivedResources int64
+	DerivedResources int64 `json:"derived_resources"`
 }
 
 const statisticPath = "/usage"
