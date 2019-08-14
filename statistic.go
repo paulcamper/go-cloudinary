@@ -36,8 +36,6 @@ const statisticPath = "/usage"
 func (s *Service) Statistic() (Statistic, error) {
 	statisticURL := fmt.Sprintf("%s%s", s.adminURI, statisticPath)
 
-	fmt.Println(statisticURL)
-
 	req, err := http.NewRequest(http.MethodGet, statisticURL, nil)
 	if err != nil {
 		return Statistic{}, err
